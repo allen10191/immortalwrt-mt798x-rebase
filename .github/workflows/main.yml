@@ -1,5 +1,4 @@
 name: Build ImmortalWrt MT798x (RAX3000M NAND)
-
 on:
   workflow_dispatch:
   push:
@@ -10,12 +9,10 @@ on:
       - 'defconfig/**'
       - 'feeds.conf.default'
       - '.github/workflows/build.yml'
-
 jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 360
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,18 +38,24 @@ jobs:
       - name: Download packages
         run: |
           make download -j$(nproc)
-        continue-on-error: true
+        # 删除 continue-on-error: true，下载失败直接终止
 
       - name: Build image
         run: |
-          make -j$(nproc) || make -j1 V=s
+          set -e
+          make -j$(nproc) || { echo "多核编译失败，切换单核编译"; make -j1 V=s; }
+
+      - name: Debug 检查输出目录
+        run: |
+          ls -la bin/targets/mediatek/filogic/
+          du -sh bin/targets/mediatek/filogic/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: immortalwrt-rax3000m-firmware
           path: |
-            bin/targets/mediatek/filogic/*rax3000m*-sysupgrade.bin
-            bin/targets/mediatek/filogic/*rax3000m*-factory.bin
+            bin/targets/mediatek/filogic/*rax3000m*-sysupgrade.itb
+            bin/targets/mediatek/filogic/*rax3000m*-factory.itb
             bin/targets/mediatek/filogic/*rax3000m*-preloader.bin
-          if-no-files-found: warn
+          if-no-files-found: error
